@@ -1,0 +1,9 @@
+datasets/
+configs/
+app/
+docs/
+notebooks/
+datasets/raw/metr_la
+datasets/raw/pems_bay
+datasets/processed/metr_la
+datasets/processed/pems_bay
