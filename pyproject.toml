@@ -1,0 +1,16 @@
+[project]
+name = "spatiotemporal-traffic-forecasting"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12.3"
+dependencies = [
+    "h5py>=3.16.0",
+    "ipykernel>=7.2.0",
+    "jupyter>=1.1.1",
+    "numpy==1.26.4",
+    "pandas>=2.3.3",
+    "scipy==1.11.4",
+    "torch==2.2.2",
+    "torch-geometric>=2.7.0",
+]
