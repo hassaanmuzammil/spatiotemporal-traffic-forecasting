@@ -8,9 +8,12 @@ dependencies = [
     "h5py>=3.16.0",
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
+    "matplotlib>=3.10.8",
     "numpy==1.26.4",
     "pandas>=2.3.3",
     "scipy==1.11.4",
+    "statsmodels>=0.14.6",
+    "tables>=3.11.1",
     "torch==2.2.2",
     "torch-geometric>=2.7.0",
 ]
