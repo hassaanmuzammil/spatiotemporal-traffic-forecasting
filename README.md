@@ -6,7 +6,6 @@ Predicting Traffic Congestion Using Spatio-Temporal Graph Neural Networks
 spatiotemporal-traffic-forecasting/
 ├── src/                        # core ML code (data, models, training, inference, utils)
 ├── app/                        # backend and frontend application logic (can be part of a separate repo if needed)
-├── configs/                    # model/dataset config YAMLs (metr_la, pems_bay)
 ├── notebooks/                  # exploratory notebooks for data and model POCs
 ├── docs/                       # project documentation
 ├── datasets/                   # not tracked by git — download from Google Drive
