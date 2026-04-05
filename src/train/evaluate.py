@@ -25,6 +25,11 @@ def test(model, test_loader, mean, std, device):
     mae  = torch.mean(torch.abs(all_preds_denorm - all_targets_denorm))
 
     print(f"rmse: {rmse:.4f}")
+    print(f"mse: {mse:.4f}")
     print(f"mae: {mae:.4f}")
 
-    return all_preds_denorm, all_targets_denorm
+    return {
+        "rmse": rmse.item(),
+        "mae":  mae.item(),
+        "mse":  mse.item(),
+    }

@@ -13,7 +13,8 @@ def train(
     ckpt_dir,
     print_every=100, 
     save_every=5,
-    scheduler=None
+    scheduler=None,
+    mlflow_run=None,
 ):
     """
     Trains the model and saves checkpoints in the provided ckpt_dir.
@@ -63,7 +64,15 @@ def train(
 
         if scheduler is not None:
             scheduler.step(val_loss)
-
+ 
+        # ── log to mlflow ──
+        if mlflow_run is not None:
+            import mlflow
+            mlflow.log_metrics(
+                {"train_loss": train_loss, "val_loss": val_loss},
+                step=epoch,
+            )
+ 
         # ── save best model ──
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -82,5 +91,5 @@ def train(
         print(f"val loss: {val_loss:.4f}  {'← best' if epoch == best_epoch else ''}")
 
     print(f"\nbest val loss: {best_val_loss:.4f} at epoch {best_epoch}")
-    
+ 
     return train_losses, val_losses

@@ -2,6 +2,7 @@ import torch
 
 # data
 DATA_DIR = "datasets"
+dataset = "METR-LA" # PEMS-BAY
 train_ratio = 0.6
 val_ratio = 0.2
 test_ratio  = 0.2
@@ -42,3 +43,8 @@ lr = 1e-3
 epochs = 25
 print_every = 100 # print losses every 100 steps
 save_every = 5 # save model ckpt every 5 epochs
+
+# mlflow
+ENABLE_MLFLOW = True # Toggle MLflow on/off
+MLFLOW_TRACKING_URI = "./mlruns" # Local backend; can be set to remote server
+MLFLOW_EXPERIMENT_NAME = "spatiotemporal-traffic-forecasting"

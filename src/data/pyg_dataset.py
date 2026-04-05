@@ -127,12 +127,15 @@ def build_dataset(dataset: Literal["METR-LA", "PEMS-BAY"], save=False):
 
 
 if __name__ == "__main__":
-    metr_df = load_traffic_h5("METR-LA")
-    metr_sensor_ids, metr_sensor_id_to_idx, metr_adj_mx = load_adj_data("METR-LA")
-    metr_df_interp = interpolate_speed(metr_df)
 
-    train_metr, val_metr, test_metr, mean, std = build_dataset("METR-LA")
+    from src.configs.config import dataset
 
-    train_loader = DataLoader(train_metr, batch_size=batch_size, shuffle=True)
-    val_loader   = DataLoader(val_metr, batch_size=batch_size, shuffle=False)
-    test_loader  = DataLoader(test_metr, batch_size=batch_size, shuffle=False)
+    df = load_traffic_h5(dataset)
+    sensor_ids, sensor_id_to_idx, adj_mx = load_adj_data(dataset)
+    df_interp = interpolate_speed(df)
+
+    train_dataset, val_dataset, test_dataset, mean, std = build_dataset(dataset)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
