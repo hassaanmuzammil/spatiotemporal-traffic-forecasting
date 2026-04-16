@@ -5,6 +5,8 @@ from torch_geometric.loader import DataLoader
 
 from src.data.pyg_dataset import build_dataset
 from src.models.gcn_baseline import GCNBaseline
+from src.models.gcn_attention import GCNSpatioTemporalAttention
+from src.models.stgcn import SpatioTemporalGNN
 from src.train.train import train
 from src.train.evaluate import test
 from src.train.utils import plot_losses, create_run_dir
@@ -48,11 +50,28 @@ def main():
         })
  
     # ── model ──
-    model = GCNBaseline(
+    # model = GCNBaseline(
+    #     cfg.in_feats,
+    #     cfg.hidden_feats,
+    #     cfg.out_feats,
+    # ).to(cfg.device)
+
+    # model = GCNSpatioTemporalAttention(
+    #     1, 
+    #     cfg.temporal_feats, 
+    #     cfg.hidden_feats,
+    #     cfg.out_feats,
+    #     cfg.num_heads,
+    # )
+
+    model = SpatioTemporalGNN(
         cfg.in_feats,
         cfg.hidden_feats,
         cfg.out_feats,
-    ).to(cfg.device)
+        cfg.num_layers,
+        cfg.num_heads,
+        cfg.dropout
+    )
  
     # ── optimizer / loss / scheduler ──
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=1e-4)
