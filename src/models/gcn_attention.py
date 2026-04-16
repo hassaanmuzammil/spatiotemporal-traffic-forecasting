@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GATConv
 
-class GCNTemporalAttention(nn.Module):
+class GCNSpatioTemporalAttention(nn.Module):
     def __init__(self, in_feats=1, temporal_hidden=32, hidden_feats=32, out_feats=1, num_heads=4):
         super().__init__()
         # project scalar timestep → temporal_hidden so MultiheadAttention has proper embedding
@@ -16,9 +16,15 @@ class GCNTemporalAttention(nn.Module):
         )
         self.norm = nn.LayerNorm(temporal_hidden)
 
-        # GCN layers for spatial aggregation
-        self.conv1 = GCNConv(temporal_hidden, hidden_feats)
-        self.conv2 = GCNConv(hidden_feats, hidden_feats)
+        # Conv layers for spatial aggregation
+        # GCNConv: fixed averaging
+        # GATConv: learned, adaptive weighting
+
+        # self.conv1 = GCNConv(temporal_hidden, hidden_feats)
+        # self.conv2 = GCNConv(hidden_feats, hidden_feats)
+        self.conv1 = GATConv(temporal_hidden, hidden_feats, num_heads, concat=False)
+        self.conv2 = GATConv(hidden_feats, hidden_feats, num_heads, concat=False)   
+
         self.fc = nn.Linear(hidden_feats, out_feats)
 
     def forward(self, data):
@@ -33,11 +39,13 @@ class GCNTemporalAttention(nn.Module):
         attn_out, _ = self.attn(x_seq, x_seq, x_seq)  # [num_nodes, seq_len, temporal_hidden]
         x_seq = self.norm(attn_out + x_seq)
 
-        x = x_seq[:, -1, :]  # [num_nodes, temporal_hidden], take last timestep embedding
-        # x = x_seq.mean(dim=1) # use temporal pooling instead
+        x = x_seq.mean(dim=1) # use temporal pooling instead
 
-        x = F.relu(self.conv1(x, edge_index, edge_weight=edge_weight))
-        x = F.relu(self.conv2(x, edge_index, edge_weight=edge_weight))
+        # x = F.relu(self.conv1(x, edge_index, edge_weight=edge_weight))
+        # x = F.relu(self.conv2(x, edge_index, edge_weight=edge_weight))
+        x = F.relu(self.conv1(x, edge_index, edge_attr=edge_weight))
+        x = F.relu(self.conv2(x, edge_index, edge_attr=edge_weight))
+
         x = self.fc(x)
 
         return x

@@ -40,7 +40,7 @@ dropout = 0.3
 CKPT_DIR = "ckpts"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 lr = 1e-3
-epochs = 25
+epochs = 10
 print_every = 100 # print losses every 100 steps
 save_every = 5 # save model ckpt every 5 epochs
 
