@@ -6,7 +6,7 @@ class GCNSpatioTemporalAttention(nn.Module):
     def __init__(self, in_feats=1, temporal_hidden=32, hidden_feats=32, out_feats=1, num_heads=4):
         super().__init__()
         # project scalar timestep → temporal_hidden so MultiheadAttention has proper embedding
-        self.input_proj = nn.Linear(1, temporal_hidden)
+        self.input_proj = nn.Linear(in_feats, temporal_hidden)
 
         # transformer-style attention over the 12 timesteps
         self.attn = nn.MultiheadAttention(
@@ -32,7 +32,7 @@ class GCNSpatioTemporalAttention(nn.Module):
         edge_weight = edge_attr.squeeze() if edge_attr is not None else None
 
         # x: [num_nodes, seq_len] → [num_nodes, seq_len, 1] for input projection
-        x_seq = x.unsqueeze(-1)
+        x_seq = self.input_proj(x)
         x_seq = self.input_proj(x_seq)  # [num_nodes, seq_len, temporal_hidden]
 
         # self-attention over timesteps

@@ -28,7 +28,7 @@ DATASET_CONFIG = {
 }
 
 # model
-in_feats = window_size
+in_feats = 3
 temporal_feats = 32
 hidden_feats = 64
 out_feats = horizon

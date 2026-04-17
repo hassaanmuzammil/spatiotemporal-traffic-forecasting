@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
+from src.data.preprocess import get_temporal_flags
 
 from src.configs.config import (
     DATASET_CONFIG,
@@ -35,6 +36,7 @@ def build_edge_index_and_attr(adj_mx: np.ndarray):
 
 def build_pyg_data_list(
     speed: torch.Tensor,
+    flags: torch.Tensor,
     edge_index: torch.Tensor,
     edge_attr: torch.Tensor,
     window_size: int,
@@ -44,7 +46,16 @@ def build_pyg_data_list(
     T = speed.shape[0]
 
     for t in range(window_size - 1, T - horizon):
-        x = speed[t - window_size + 1 : t + 1].T
+        #Windows
+        s_window = speed[t - window_size + 1 : t + 1].T 
+        f_window = flags[t - window_size + 1 : t + 1] 
+
+        # Repeat
+        f_window = f_window.unsqueeze(0).repeat(s_window.shape[0], 1, 1)
+
+        # Stack
+        x = torch.cat([s_window.unsqueeze(-1), f_window], dim=-1)
+        
         y = speed[t + 1 : t + 1 + horizon].T
         data_list.append(Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y))
 
@@ -53,6 +64,7 @@ def build_pyg_data_list(
     print(f"y shape: {data_list[0].y.shape}")
 
     return data_list
+
 
 
 class TrafficDataset(InMemoryDataset):
@@ -106,11 +118,15 @@ def build_dataset(dataset: Literal["METR-LA", "PEMS-BAY"], save=False):
     edge_index, edge_attr = build_edge_index_and_attr(adj_mx)
 
     print("\n[6] Building sliding windows")
+    train_flags = torch.tensor(get_temporal_flags(train_df).values, dtype=torch.float32)
+    val_flags   = torch.tensor(get_temporal_flags(val_df).values, dtype=torch.float32)
+    test_flags  = torch.tensor(get_temporal_flags(test_df).values, dtype=torch.float32)
+
     def to_tensor(d): return torch.tensor(d.values, dtype=torch.float32)
 
-    train_list = build_pyg_data_list(to_tensor(train_df), edge_index, edge_attr, window_size, horizon)
-    val_list   = build_pyg_data_list(to_tensor(val_df),   edge_index, edge_attr, window_size, horizon)
-    test_list  = build_pyg_data_list(to_tensor(test_df),  edge_index, edge_attr, window_size, horizon)
+    train_list = build_pyg_data_list(to_tensor(train_df), train_flags, edge_index, edge_attr, window_size, horizon)
+    val_list   = build_pyg_data_list(to_tensor(val_df),   val_flags,   edge_index, edge_attr, window_size, horizon)
+    test_list  = build_pyg_data_list(to_tensor(test_df),  test_flags,  edge_index, edge_attr, window_size, horizon)
 
     if save:
         torch.save({

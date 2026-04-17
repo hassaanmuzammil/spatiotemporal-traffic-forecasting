@@ -21,3 +21,21 @@ def normalize(df: pd.DataFrame):
     mean = df.values.mean()
     std  = df.values.std()
     return (df - mean) / std, mean, std
+
+# Flags
+def get_temporal_flags(df: pd.DataFrame) -> pd.DataFrame:
+    # Weekend
+    is_weekend = (df.index.dayofweek >= 5).astype(np.float32)
+    
+    # Holidays
+    holiday_dates = [
+        '2012-01-01', '2012-01-02', '2012-01-16', '2012-02-20', 
+        '2012-05-28', '2012-07-04', '2012-09-03', '2012-10-08', 
+        '2012-11-11', '2012-11-12', '2012-11-22', '2012-12-25'
+    ]
+    is_holiday = df.index.normalize().isin(pd.to_datetime(holiday_dates)).astype(np.float32)
+    
+    return pd.DataFrame({
+        'is_weekend': is_weekend,
+        'is_holiday': is_holiday
+    }, index=df.index)

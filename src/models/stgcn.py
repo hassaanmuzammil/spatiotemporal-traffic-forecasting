@@ -9,7 +9,7 @@ class TemporalBlock(nn.Module):
     def __init__(self, in_feats, hidden_feats, dropout):
         super().__init__()
         self.gru = nn.GRU(
-            input_size = 1,
+            input_size = in_feats,
             hidden_size = hidden_feats,
             num_layers = 2,
             batch_first = True,
@@ -18,9 +18,9 @@ class TemporalBlock(nn.Module):
 
     def forward(self, x):
         # x : [N, window_size]
-        x = x.unsqueeze(-1) # [N, window_size, 1]
         _, h = self.gru(x) # h : [2, N, hidden]
         return h[-1] # [N, hidden]
+
 
 
 class SpatialBlock(nn.Module):
