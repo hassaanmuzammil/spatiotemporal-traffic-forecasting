@@ -212,3 +212,11 @@ extra/
 ckpts/
 *.pt
 mlruns/
+
+# Ignore raw and processed datasets
+datasets/
+*.h5
+*.pkl
+*.pt
+
+mlflow.db
