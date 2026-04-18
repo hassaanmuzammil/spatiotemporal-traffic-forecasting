@@ -7,6 +7,7 @@ from src.data.pyg_dataset import build_dataset
 from src.models.gcn_baseline import GCNBaseline
 from src.models.gcn_attention import GCNSpatioTemporalAttention
 from src.models.stgcn import SpatioTemporalGNN
+from src.models.gcn_transformer import SpatioTemporalTransformer
 from src.train.train import train
 from src.train.evaluate import test
 from src.train.utils import plot_losses, create_run_dir
@@ -57,21 +58,30 @@ def main():
     # ).to(cfg.device)
 
     # model = GCNSpatioTemporalAttention(
-    #     1, 
-    #     cfg.temporal_feats, 
+    #     1,
+    #     cfg.temporal_feats,
     #     cfg.hidden_feats,
     #     cfg.out_feats,
     #     cfg.num_heads,
     # )
 
-    model = SpatioTemporalGNN(
+    # model = SpatioTemporalGNN(
+    #     cfg.in_feats,
+    #     cfg.hidden_feats,
+    #     cfg.out_feats,
+    #     cfg.num_layers,
+    #     cfg.num_heads,
+    #     cfg.dropout
+    # )
+
+    model = SpatioTemporalTransformer(
         cfg.in_feats,
         cfg.hidden_feats,
         cfg.out_feats,
         cfg.num_layers,
         cfg.num_heads,
-        cfg.dropout
-    )
+        cfg.dropout,
+    ).to(cfg.device)
  
     # ── optimizer / loss / scheduler ──
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=1e-4)
