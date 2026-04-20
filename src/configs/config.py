@@ -1,15 +1,19 @@
 import torch
 
-# data
+# =========================
+# Data
+# =========================
 DATA_DIR = "datasets"
-dataset = "METR-LA" # PEMS-BAY
+dataset = "METR-LA"  # or "PEMS-BAY"
+
 train_ratio = 0.6
 val_ratio = 0.2
-test_ratio  = 0.2
-window_size  = 12
+test_ratio = 0.2
+
+window_size = 12
 horizon = 12
 batch_size = 32
-
+USE_TEMPORAL_FEATURES = True   # True for speed + temporal features
 DATASET_CONFIG = {
     "METR-LA": {
         "group_key": "df",
@@ -27,8 +31,22 @@ DATASET_CONFIG = {
     },
 }
 
-# model
-in_feats = window_size
+# =========================
+# Model
+# =========================
+
+# --- CURRENT SETTING: no extra temporal features ---
+# Only raw traffic speed is used as input
+#in_feats = 1
+
+# --- If you want to enable temporal features later ---
+# Input becomes:
+# 1 speed feature
+# + 6 temporal features:
+#   time_of_day_sin, time_of_day_cos,
+#   day_of_week_sin, day_of_week_cos,
+#   is_weekend, is_holiday
+in_feats = 7
 temporal_feats = 32
 hidden_feats = 64
 out_feats = horizon
@@ -36,15 +54,20 @@ num_layers = 3
 num_heads = 4
 dropout = 0.3
 
-# train
+# =========================
+# Training
+# =========================
 CKPT_DIR = "ckpts"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 lr = 1e-3
 epochs = 10
-print_every = 100 # print losses every 100 steps
-save_every = 5 # save model ckpt every 5 epochs
+print_every = 100
+save_every = 5
 
-# mlflow
-ENABLE_MLFLOW = True # Toggle MLflow on/off
-MLFLOW_TRACKING_URI = "./mlruns" # Local backend; can be set to remote server
+# =========================
+# MLflow
+# =========================
+ENABLE_MLFLOW = False   # turn on later after mlflow setup
+MLFLOW_TRACKING_URI = "./mlruns"
 MLFLOW_EXPERIMENT_NAME = "spatiotemporal-traffic-forecasting"

@@ -212,3 +212,5 @@ extra/
 ckpts/
 *.pt
 mlruns/
+__pycache__/
+*.pyc
