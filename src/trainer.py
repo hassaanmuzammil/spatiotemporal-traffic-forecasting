@@ -23,7 +23,6 @@ def main():
         mlflow.set_experiment(cfg.MLFLOW_EXPERIMENT_NAME)
         mlflow_run = mlflow.start_run()
  
-        # log full config — skip dunder attrs, dicts (DATASET_CONFIG), and modules
         config_params = {
             k: str(v)
             for k, v in vars(cfg).items()
@@ -32,7 +31,7 @@ def main():
         mlflow.log_params(config_params)
  
     # ── load dataset ──
-    train_ds, val_ds, test_ds, mean, std = build_dataset("METR-LA")
+    train_ds, val_ds, test_ds, mean, std = build_dataset("PEMS-BAY")  # ← changed
  
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=False)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False)
@@ -126,7 +125,6 @@ def main():
     model.load_state_dict(torch.load(best_model_path))
     test_metrics = test(model, test_loader, mean, std, cfg.device)
  
-    # log test metrics if test() returns a dict; otherwise this is a no-op
     if mlflow_run is not None and isinstance(test_metrics, dict):
         import mlflow
         mlflow.set_tags({f"test_{k}": v for k, v in test_metrics.items()})
