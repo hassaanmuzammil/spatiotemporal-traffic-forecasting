@@ -125,6 +125,13 @@ def main():
     best_model_path = os.path.join(run_ckpt_dir, "best_model.pt")
     model.load_state_dict(torch.load(best_model_path))
     test_metrics = test(model, test_loader, mean, std, cfg.device)
+
+    # # Saves metrics for UI --- (test for re training)
+    # import json
+    # metrics_file = os.path.join(run_ckpt_dir, "metrics.json")
+    # with open(metrics_file, "w") as f:
+    #     json.dump(test_metrics, f)
+    # print(f"Metrics saved to → {metrics_file}")
  
     # log test metrics if test() returns a dict; otherwise this is a no-op
     if mlflow_run is not None and isinstance(test_metrics, dict):
