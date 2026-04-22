@@ -1,349 +1,211 @@
 import sys
 import os
-
 import streamlit as st
 import importlib
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 import pydeck as pdk
 import torch
+import json
+import pickle
+import h5py
+import datetime
 from torch_geometric.data import Data
+from pandas.tseries.holiday import USFederalHolidayCalendar
 
-# -- test after re training ---
-# import json
 
-# def get_real_metrics(selection):
-#     try:
-#         _, _, ckpt_rel_path = MODEL_REGISTRY[selection]
-#         # Get the folder (e.g., run_20260418_200019)
-#         run_folder = os.path.dirname(ckpt_rel_path)
-#         metrics_path = os.path.join(root_dir, "ckpts", run_folder, "metrics.json")
-        
-#         if os.path.exists(metrics_path):
-#             with open(metrics_path, 'r') as f:
-#                 data = json.load(f)
-#                 # Your log showed: mae: 5.2376, rmse: 8.8463
-#                 return {
-#                     "MAE": round(float(data.get("mae", 0.0)), 2),
-#                     "RMSE": round(float(data.get("rmse", 0.0)), 2)
-#                 }
-#     except Exception as e:
-#         print(f"Error loading metrics for {selection}: {e}")
-    
-#     return {"MAE": 0.0, "RMSE": 0.0}
-
-# PATH FIX
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, "../../"))
-
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-
-
-# REGISTRY
 MODEL_REGISTRY = {
-    "GCN Baseline": (
-        "src.models.gcn_baseline", 
-        "GCNBaseline", 
-        "run_20260418_205227/best_model.pt"
-    ),
-    "SpatioTemporal GNN": (
-        "src.models.stgcn", 
-        "SpatioTemporalGNN", 
-        "run_20260418_184419/best_model.pt"
-    ),
-    "GCN Attention": (
-        "src.models.gcn_attention", 
-        "GCNSpatioTemporalAttention", 
-        "run_20260418_200019/best_model.pt"
-    ),
-    "GCN Transformer": (
-        "src.models.gcn_transformer", 
-        "SpatioTemporalTransformer", 
-        "run_20260418_165129/best_model.pt"
-    )
+    "GCN Baseline": ("src.models.gcn_baseline", "GCNBaseline", "run_20260421_222234/best_model.pt"),
+    "GCN Attention": ("src.models.gcn_attention", "GCNSpatioTemporalAttention", "run_20260421_222540/best_model.pt"),
+    "SpatioTemporal GNN": ("src.models.stgcn", "SpatioTemporalGNN", "run_20260421_230619/best_model.pt"),
+    "GCN Transformer": ("src.models.gcn_transformer", "SpatioTemporalTransformer", "run_20260421_233428/best_model.pt")
 }
 
-@st.cache_resource
-def load_selected_model(selection):
+
+def get_real_metrics(selection):
     try:
-        module_path, class_name, ckpt_rel_path = MODEL_REGISTRY[selection]
-        ckpt_path = os.path.join(root_dir, "ckpts", ckpt_rel_path)
-        
-        if not os.path.exists(ckpt_path):
-            return None, f"Not found at: {ckpt_path}"
-
-        module = importlib.import_module(module_path)
-        model_class = getattr(module, class_name)
-        
-        if class_name == "GCNBaseline":
-            model = model_class(in_feats=12, hidden_feats=64, out_feats=12)
-        elif class_name == "SpatioTemporalGNN":
-            model = model_class(in_feats=12, hidden_feats=64, out_feats=12)
-        elif class_name == "GCNSpatioTemporalAttention":
-            model = model_class(in_feats=12, hidden_feats=64, out_feats=12)
-        elif class_name == "SpatioTemporalTransformer":
-            model = model_class(
-                in_feats=12, 
-                hidden_feats=64, 
-                out_feats=12, 
-                num_layers=3, 
-                num_heads=4
-            )
-        else:
-            # Fallback for any other model
-            model = model_class(in_feats=12, hidden_feats=64, out_feats=12)
-
-        model.load_state_dict(torch.load(ckpt_path, map_location="cpu"))
-        model.eval()
-        return model, True
-    except Exception as e:
-        return None, str(e)
+        _, _, ckpt_rel_path = MODEL_REGISTRY[selection]
+        metrics_path = os.path.join(root_dir, "ckpts", os.path.dirname(ckpt_rel_path), "metrics.json")
+        if os.path.exists(metrics_path):
+            with open(metrics_path, 'r') as f:
+                data = json.load(f)
+                return {"MAE": round(float(data.get("mae", 0.0)), 4), 
+                        "RMSE": round(float(data.get("rmse", 0.0)), 4),
+                        "MSE": round(float(data.get("mse", 0.0)), 4),
+                        "Best Val Loss": round(float(data.get("best_val_loss", 0.0)), 6)
+                }
+    except: pass
+    # return {"MAE": 0.0, "RMSE": 0.0}
+    return {"MAE": 0.0, "RMSE": 0.0, "MSE": 0.0, "Best Val Loss": 0.0}
 
 
 
-# --- PAGE SETUP & SIDEBAR ---
-st.set_page_config(page_title="Traffic Forecasting Lab", layout="wide")
-st.title("🚗 Spatio-Temporal Traffic Forecasting")
-
-st.sidebar.title("Configuration")
-
-# Prevents the KeyError
-model_step = st.sidebar.selectbox(
-    "Select Modeling Step",
-    options=list(MODEL_REGISTRY.keys()),
-    key="model_selector"
-)
-
-st.sidebar.subheader("Temporal Features")
-day_of_week = st.sidebar.select_slider(
-    "Day of Week", 
-    options=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    key="day_slider"
-)
-hour_of_day = st.sidebar.slider("Hour of Day", 0, 23, 17, key="hour_slider")
-use_holiday = st.sidebar.toggle("Include Holiday Flags", value=True, key="holiday_toggle")
-
-
-
-
-# --- 4. LOAD MODEL & STATUS ---
-model, status = load_selected_model(model_step)
-using_real_model = isinstance(model, torch.nn.Module)
-
-if using_real_model:
-    st.sidebar.success(f"✅ {model_step} Loaded")
-else:
-    # Safe lookup for the warning message
-    ckpt_name = MODEL_REGISTRY[model_step][2]
-    st.sidebar.warning(f"⚠️ Simulated Data: {status}")
-
-
-
-
-# --- 5. DATA & MAP ---
-def get_predictions(hour, day_name):
-    if not using_real_model:
-        is_rush = (7 <= hour <= 9) or (16 <= hour <= 19)
-        base = 15 if (is_rush and day_name not in ["Sat", "Sun"]) else 60
-        return np.random.normal(base, 5, 207)
-
-    day_map = {"Mon":0, "Tue":1, "Wed":2, "Thu":3, "Fri":4, "Sat":5, "Sun":6}
+@st.cache_data
+def load_dataset_resources(city_choice):
+    sub_path, h5_file, pkl_file = ("datasets/raw/metr_la", "metr_la.h5", "adj_metr_la.pkl") if "LA" in city_choice else ("datasets/raw/pems-bay", "pems_bay.h5", "adj_mx_bay.pkl")
+    start_date = "2012-03-01 00:00:00" if "LA" in city_choice else "2017-01-01 00:00:00"
     
-    # Features (Node, Time, Features)
-    x = torch.randn(207, 12) 
+    h5_path = os.path.abspath(os.path.join(root_dir, sub_path, h5_file))
+    pkl_path = os.path.abspath(os.path.join(root_dir, sub_path, pkl_file))
     
-    # Dummy edge index (Self-loops for 207 nodes)
-    edge_index = torch.stack([torch.arange(207), torch.arange(207)], dim=0)
+    with h5py.File(h5_path, 'r') as f:
+        data_key = 'df/block0_values' if 'df' in f else list(f.keys())[0]
+        raw_data = f[data_key][:]
+        idx = pd.date_range(start=start_date, periods=len(raw_data), freq='5min')
+        traffic_df = pd.DataFrame(raw_data, index=idx)
 
-    data_obj = Data(x=x, edge_index=edge_index)
+    with open(pkl_path, 'rb') as f:
+        pkl_content = pickle.load(f, encoding='latin1')
+        adj_mx = pkl_content[2] if len(pkl_content) > 2 else pkl_content[1]
     
+    num_nodes = adj_mx.shape[0]
+    edge_index = torch.from_numpy(adj_mx).to_sparse().indices()
+    lats = np.linspace(34.00, 34.15, num_nodes) + np.random.normal(0, 0.005, num_nodes)
+    lons = np.linspace(-118.35, -118.15, num_nodes) + np.random.normal(0, 0.005, num_nodes)
+
+    return traffic_df, edge_index, num_nodes, lats, lons
+
+# UI SETUP
+st.set_page_config(page_title="Traffic Lab", layout="wide")
+
+city_choice = "Los Angeles (METR-LA)"
+
+st.sidebar.title("City: Los Angeles")
+st.sidebar.caption("Dataset: METR-LA")
+st.sidebar.markdown("---")
+
+model_step = st.sidebar.selectbox("Model Architecture", options=list(MODEL_REGISTRY.keys()))
+
+traffic_df, REAL_EDGE_INDEX, NODE_COUNT, lats, lons = load_dataset_resources(city_choice)
+all_model_metrics = {name: get_real_metrics(name) for name in MODEL_REGISTRY.keys()}
+
+d = st.sidebar.date_input("Date", value=traffic_df.index.min().date())
+time_options = [datetime.time(hour=h, minute=m) for h in range(24) for m in (0, 15, 30, 45)]
+time_labels = [t.strftime("%I:%M %p") for t in time_options]
+
+selected_label = st.sidebar.selectbox("Time", options=time_labels, index=32)
+t = time_options[time_labels.index(selected_label)]
+
+idx_val = max(12, traffic_df.index.get_indexer([pd.Timestamp.combine(d, t)], method='nearest')[0])
+
+
+@st.cache_resource
+def load_model_instance(selection):
+    module_path, class_name, ckpt_rel_path = MODEL_REGISTRY[selection]
+    ckpt_path = os.path.join(root_dir, "ckpts", ckpt_rel_path)
+    module = importlib.import_module(module_path)
+    model = getattr(module, class_name)(in_feats=12, hidden_feats=64, out_feats=12)
+    if os.path.exists(ckpt_path): model.load_state_dict(torch.load(ckpt_path, map_location="cpu"))
+    return model.eval()
+
+
+active_model = load_model_instance(model_step)
+
+def get_predictions(model_obj, start_idx):
+    x_input = torch.tensor(traffic_df.iloc[start_idx-12 : start_idx, :].values.T).to(torch.float32)
     with torch.no_grad():
-        # Pass data object
-        prediction = model(data_obj)
-        
-        # Check if the output is a single tensor or part of a sequence
-        if isinstance(prediction, torch.Tensor):
-            return prediction.cpu().numpy().flatten()[:207] * 70.0
-        return np.random.normal(55, 5, 207) # Fallback
- 
+        try:
+            pred = model_obj(x_input.unsqueeze(0), REAL_EDGE_INDEX).cpu().numpy().squeeze()
+            
+        except: 
+            return x_input[:, -1].numpy()
 
-lats = np.random.normal(34.05, 0.03, 207)
-lons = np.random.normal(-118.24, 0.05, 207)
-speeds = get_predictions(hour_of_day, day_of_week)
-df_map = pd.DataFrame({'lat': lats, 'lon': lons, 'speed': speeds})
+speeds = get_predictions(active_model, idx_val)
+df_map = pd.DataFrame({'lat': lats, 'lon': lons, 'speed': speeds, 'weight': 70 - speeds})
 
 
+# THE MAP 
+glow_gradient = [
+    [0, 255, 100, 80], 
+    [255, 255, 0, 160],  
+    [255, 120, 0, 220], 
+    [255, 0, 0, 255]   
+]
 
+heatmap = pdk.Layer(
+    "HeatmapLayer",
+    data=df_map,
+    get_position="[lon, lat]",
+    get_weight="weight",
+    color_range=glow_gradient,
+    threshold=0.03,
+    radius_pixels=90,
+    intensity=3
+)
+
+scatterplot = pdk.Layer(
+    "ScatterplotLayer",
+    data=df_map,
+    get_position="[lon, lat]",
+    get_fill_color="speed < 30 ? [255, 0, 0, 255] : (speed < 50 ? [255, 255, 0, 255] : [0, 255, 100, 200])",
+    get_radius=150,
+    stroked=True,          
+    get_line_color=[0, 0, 0],  
+    get_line_width=30,         
+    pickable=True
+)
 
 st.pydeck_chart(pdk.Deck(
-    map_style=None,
-    initial_view_state=pdk.ViewState(latitude=34.05, longitude=-118.24, zoom=10.5, pitch=45),
-    layers=[pdk.Layer(
-        "HeatmapLayer",
-        data=df_map,
-        get_position="[lon, lat]",
-        get_weight="80 - speed",
-        radius_pixels=40,
-        color_range=[[0, 255, 100, 100], [255, 200, 0, 150], [255, 0, 0, 200]]
-    )]
+    map_style="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    initial_view_state=pdk.ViewState(latitude=lats.mean(), longitude=lons.mean(), zoom=11.2, pitch=45),
+    layers=[heatmap, scatterplot],
+    tooltip={"text": "Predicted Speed: {speed:.1f} mph"}
 ))
 
 
 
+# PERFORMANCE 
+st.subheader("📊 Performance Comparison")
+curr_mae = all_model_metrics[model_step]["MAE"]
 
-# --- ACCURACY BOOST VISUALIZATION ---
-st.subheader(f"📈 Prediction Detail: {model_step}")
+if "prev_model" not in st.session_state: 
+    st.session_state.prev_model = "GCN Baseline"
 
-# Simulate some data for the visualization
-time_steps = np.arange(50)
-actual = 60 + 15 * np.sin(time_steps / 6) + np.random.normal(0, 1.5, 50)
+prev_mae = all_model_metrics[st.session_state.prev_model]["MAE"]
 
-# Shift prediction based on toggle
-offset = 1.5 if use_holiday else 5.0
-predicted = actual + np.random.normal(offset, 1.0, 50)
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=time_steps, y=actual, name="Ground Truth", line=dict(color='white', dash='dash')))
-fig.add_trace(go.Scatter(x=time_steps, y=predicted, name="Model Output", line=dict(color='#00f2ff', width=3)))
-
-fig.update_layout(
-    template="plotly_dark",
-    xaxis_title="Time Steps (5-min intervals)",
-    yaxis_title="Traffic Speed (mph)",
-    hovermode="x unified"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-
-
-
-# --- IMPACT SUMMARY (Dynamic) --- [with hard coded raw scores]
-
-# Raw scores
-model_scores = {
-    "GCN Baseline": 5.81,
-    "SpatioTemporal GNN": 4.35,
-    "GCN Attention": 3.52,
-    "GCN Transformer": 2.75
-}
-
-# Session State Tracking
-if "previous_model" not in st.session_state:
-    st.session_state.previous_model = "GCN Baseline"
-
-current_score = model_scores.get(model_step, 5.81)
-previous_score = model_scores.get(st.session_state.previous_model, 5.81)
-
-# Calculating Gain/Loss
-gain_val = 0
-delta_color = "normal"
-
-if previous_score != current_score:
-    gain_val = ((previous_score - current_score) / previous_score) * 100
-    gain_text = f"{gain_val:.1f}%"
-    delta_label = f"vs. {st.session_state.previous_model}"
-    
-    delta_color = "normal" if gain_val >= 0 else "inverse"
-else:
-    gain_text = "0.0%"
-    delta_label = "No Change"
-
-# UI
 c1, c2 = st.columns(2)
-with c1:
-    st.info(f"**Current Model:** {model_step}")
-    st.write(f"Comparing performance against **{st.session_state.previous_model}**.")
+with c1: 
+    st.info(f"**Model:** {model_step}  \n**Time:** {traffic_df.index[idx_val].strftime('%I:%M %p')}")
 
 with c2:
+    gain = ((prev_mae - curr_mae) / prev_mae * 100) if prev_mae > 0 else 0
+    
     st.metric(
-        label="Incremental Accuracy Gain", 
-        value=gain_text, 
-        delta=delta_label if previous_score != current_score else None,
-        delta_color=delta_color
+        label="Accuracy Change", 
+        value=f"{gain:.1f}%", 
+        delta=f"{gain:.1f}% vs {st.session_state.prev_model}",
+        delta_color="normal" 
     )
 
-# For next run
-st.session_state.previous_model = model_step
 
-st.divider()
+st.session_state.prev_model = model_step
 
 
+table_rows = []
+for name, m in all_model_metrics.items():
+    table_rows.append({
+        "Model": name,
+        "MAE": m.get("MAE", 0.0),
+        "RMSE": m.get("RMSE", 0.0),
+        "MSE": m.get("MSE", 0.0), 
+        "Best Val Loss": m.get("Best Val Loss", 0.0) 
+    })
 
-# # --- IMPACT SUMMARY (Dynamic Comparison) --- (test after re training)
+perf_df = pd.DataFrame(table_rows)
 
-# if "previous_model" not in st.session_state:
-#     st.session_state.previous_model = "GCN Baseline"
-
-# # Pulling MAE dynamically from our extracted metrics
-# current_score = all_model_metrics[model_step]["MAE"]
-# previous_score = all_model_metrics[st.session_state.previous_model]["MAE"]
-
-# if previous_score != current_score and previous_score != 0:
-#     gain_val = ((previous_score - current_score) / previous_score) * 100
-#     gain_text = f"{gain_val:.1f}%"
-#     delta_label = f"vs. {st.session_state.previous_model}"
-#     delta_color = "normal" if gain_val >= 0 else "inverse"
-# else:
-#     gain_text = "0.0%"
-#     delta_label = "No Change"
-
-# c1, c2 = st.columns(2)
-# with c1:
-#     st.info(f"**Architecture:** {model_step}")
-#     st.write(f"Evaluating shift from **{st.session_state.previous_model}**.")
-
-# with c2:
-#     st.metric(
-#         label="Architecture Efficiency Gain", 
-#         value=gain_text, 
-#         delta=delta_label if previous_score != current_score else None,
-#         delta_color=delta_color
-#     )
-
-# st.session_state.previous_model = model_step
-
-
-
-
-
-# --- RESULTS TABLE ---
-st.subheader("📊 Performance Comparison Table")
-
-results_data = {
-    "Model Approach": [
-        "GCN Baseline", 
-        "SpatioTemporal GNN", 
-        "GCN Attention", 
-        "GCN Transformer"
-    ],
-    "MAE (Error)": [6.58, 5.95, 5.24, 4.12],
-    "RMSE (Variance)": [10.25, 9.40, 8.85, 7.20]
-}
-
-df_results = pd.DataFrame(results_data)
-
-
-st.table(df_results)
-
-
-
-
-# # --- RESULTS TABLE (Dynamic) --- (test after new training)
-# st.subheader("📊 Comparative Model Performance")
-
-# results_data = {
-#     "Model Architecture": [],
-#     "MAE (Test)": [],
-#     "RMSE (Test)": []
-# }
-
-# for name, metrics in all_model_metrics.items():
-#     results_data["Model Architecture"].append(name)
-#     results_data["MAE (Test)"].append(metrics["MAE"])
-#     results_data["RMSE (Test)"].append(metrics["RMSE"])
-
-# st.table(pd.DataFrame(results_data))
+st.dataframe(
+    perf_df, 
+    use_container_width=True, 
+    hide_index=True,
+    column_config={
+        "MAE": st.column_config.NumberColumn(format="%.4f"),
+        "RMSE": st.column_config.NumberColumn(format="%.4f"),
+        "MSE": st.column_config.NumberColumn(format="%.4f"),
+        "Best Val Loss": st.column_config.NumberColumn(format="%.6f"),
+    }
+)

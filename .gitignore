@@ -212,3 +212,11 @@ extra/
 ckpts/
 *.pt
 mlruns/
+
+# Ignore the data files
+datasets/raw/
+*.h5
+*.pkl
+
+# Ignore the heavy model checkpoints
+ckpts/run_*/

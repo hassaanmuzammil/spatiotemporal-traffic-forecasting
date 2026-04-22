@@ -32,7 +32,8 @@ def main():
         mlflow.log_params(config_params)
  
     # ── load dataset ──
-    train_ds, val_ds, test_ds, mean, std = build_dataset("METR-LA")
+    # ----- UI only tested for METR-LA so far ----
+    train_ds, val_ds, test_ds, mean, std = build_dataset("PEMS-BAY")
  
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=False)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False)
@@ -126,20 +127,38 @@ def main():
     model.load_state_dict(torch.load(best_model_path))
     test_metrics = test(model, test_loader, mean, std, cfg.device)
 
-    # # Saves metrics for UI --- (test for re training)
-    # import json
-    # metrics_file = os.path.join(run_ckpt_dir, "metrics.json")
-    # with open(metrics_file, "w") as f:
-    #     json.dump(test_metrics, f)
-    # print(f"Metrics saved to → {metrics_file}")
- 
+    # Saves metrics for UI 
+    import json
+    metrics_file = os.path.join(run_ckpt_dir, "metrics.json")
+    
+    ui_output = {
+        "mae": float(test_metrics.get("mae", 0.0)),
+        "rmse": float(test_metrics.get("rmse", 0.0)),
+        # "dataset": "METR-LA", # Or PEMS-Bay
+        # "nodes": 207,          # Or 325 if training on PEMS-Bay
+        "mean": float(mean),
+        "std": float(std),
+
+        # -- test for re training ---
+        "mse": float(test_metrics.get("mse", 0.0)),
+        "best_val_loss": float(min(val_losses))
+    }
+    
+    with open(metrics_file, "w") as f:
+        json.dump(ui_output, f, indent=4)
+        
+    print(f"Metrics saved to → {metrics_file}")
+
+
+
+
     # log test metrics if test() returns a dict; otherwise this is a no-op
     if mlflow_run is not None and isinstance(test_metrics, dict):
         import mlflow
         mlflow.set_tags({f"test_{k}": v for k, v in test_metrics.items()})
  
     # ── end mlflow run ──
-    if mlflow_run is not None:
+    if mlflow_run is not None:  
         import mlflow
         mlflow.end_run()
  
