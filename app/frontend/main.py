@@ -84,7 +84,16 @@ model_step = st.sidebar.selectbox("Model Architecture", options=list(MODEL_REGIS
 traffic_df, REAL_EDGE_INDEX, NODE_COUNT, lats, lons = load_dataset_resources(city_choice)
 all_model_metrics = {name: get_real_metrics(name) for name in MODEL_REGISTRY.keys()}
 
-d = st.sidebar.date_input("Date", value=traffic_df.index.min().date())
+min_ts = traffic_df.index.min()
+max_ts = traffic_df.index.max()
+
+d = st.sidebar.date_input(
+    "Date", 
+    value=min_ts.date(),         
+    min_value=min_ts.date(),
+    max_value=max_ts.date()      
+)
+
 time_options = [datetime.time(hour=h, minute=m) for h in range(24) for m in (0, 15, 30, 45)]
 time_labels = [t.strftime("%I:%M %p") for t in time_options]
 
