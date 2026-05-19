@@ -2,7 +2,7 @@ import torch
 
 # data
 DATA_DIR = "datasets"
-dataset = "METR-LA" # PEMS-BAY
+dataset = "PEMS-BAY" # PEMS-BAY
 train_ratio = 0.6
 val_ratio = 0.2
 test_ratio  = 0.2
@@ -29,8 +29,8 @@ DATASET_CONFIG = {
 
 # model
 in_feats = window_size
-temporal_feats = 32
-hidden_feats = 64
+temporal_feats = 32   # updated from 32
+hidden_feats = 64     # updated from 64
 out_feats = horizon
 num_layers = 3
 num_heads = 4
@@ -41,10 +41,10 @@ CKPT_DIR = "ckpts"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 lr = 1e-3
 epochs = 10
-print_every = 100 # print losses every 100 steps
-save_every = 5 # save model ckpt every 5 epochs
+print_every = 100
+save_every = 5
 
 # mlflow
-ENABLE_MLFLOW = True # Toggle MLflow on/off
-MLFLOW_TRACKING_URI = "./mlruns" # Local backend; can be set to remote server
+ENABLE_MLFLOW = True
+MLFLOW_TRACKING_URI = "./mlruns"
 MLFLOW_EXPERIMENT_NAME = "spatiotemporal-traffic-forecasting"
